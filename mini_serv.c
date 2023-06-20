@@ -27,7 +27,7 @@ void    send_all(int sender_fd)
     for (int i = 0; i <= max_fd; i++)
     {
         if (FD_ISSET(i, &r_fds) && i != sender_fd)
-            send(i, w_buf, sizeof(w_buf), 0);
+            send(i, w_buf, strlen(w_buf), 0);
     }
 }
 
@@ -98,7 +98,7 @@ int main(int argc, char** argv)
                             clients[fd].msg[i] = '\0';
                             sprintf(w_buf, "client %d: %s\n", clients[fd].id, clients[fd].msg);
                             send_all(fd);
-                            bzero(&clients[fd].msg, sizeof(clients[fd].msg));
+                            bzero(&clients[fd].msg, strlen(clients[fd].msg));
                             i = -1;
                         }
                     }
