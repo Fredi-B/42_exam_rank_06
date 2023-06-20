@@ -62,10 +62,6 @@ int main(int argc, char** argv)
     while (1)
     {
         read_fds = write_fds = fds;
-
-        printf("New round\n");
-        sleep(1);
-
         if (select(max_fd + 1, &write_fds, &read_fds, NULL, NULL) < 0)
             continue;
         for (int i = 0; i <= max_fd; i++)
@@ -75,9 +71,6 @@ int main(int argc, char** argv)
                 int client_fd = accept(server_fd, (struct sockaddr*)&addr, &addr_len);
                 if (client_fd < 0)
                     continue;
-
-                printf("New client\n");
-                
                 FD_SET(client_fd, &fds);
                 if (client_fd > max_fd)
                     max_fd = client_fd;

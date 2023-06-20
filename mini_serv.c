@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <strings.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -56,7 +57,6 @@ int main(int argc, char** argv)
     while(1)
     {
         r_fds = w_fds = fds;
-        sleep (1);
         if (select(max_fd + 1, &w_fds, &r_fds, NULL, NULL) == -1)
             continue ;
         for (int fd = 0; fd <= max_fd; fd++)
@@ -74,7 +74,34 @@ int main(int argc, char** argv)
                 send_all(client_fd);
                 break;
             }
-            
+            if (FD_ISSET(fd, &w_fds) && fd != socket_fd)
+            {
+                int len_msg = recv(fd, r_buf, 42 * 4096, 0);
+                if (len_msg <= 0)
+                {
+                    sprintf(w_buf, "server: client %d just left\n", clients[fd].id);
+                    send_all(fd);
+                    FD_CLR(fd, &fds);
+                    close(fd);
+                    break;
+                }
+                else
+                {
+                    for (int i = strlen(clients[fd].msg), j = 0; j < len_msg; i++, j++)
+                    {
+                        clients[fd].msg[i] = r_buf[j];
+                        if (clients[fd].msg[i] == '\n')
+                        {
+                            clients[fd].msg[i] = '\0';
+                            sprintf(w_buf, "client %d: %s\n", clients[fd].id, clients[fd].msg);
+                            send_all(fd);
+                            bzero(clients[fd].msg, sizeof(clients[fd].msg));
+                            i = -1;
+                        }
+                    }
+                    break;
+                }
+            }
         }
     }
     return (0);
