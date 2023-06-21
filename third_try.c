@@ -3,18 +3,18 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <sys/select.h>
+#include <unistd.h>
 
 typedef struct client {
-    char    msg[100];
+    char    msg[11000];
     int     id;
 }   t_client;
 
-t_client    clients[124];
+t_client    clients[1024];
 fd_set      fds, w_fds, r_fds;
 int         max_fd = 0, next_id = 0;
-char        w_buf[1000], r_buf[1000];
+char        w_buf[42 * 4096], r_buf[42 * 4096];
 
 void    fatal_error()
 {
@@ -31,16 +31,16 @@ void    send_all(int sender_fd)
     }
 }
 
+
 int main(int argc, char** argv)
 {
     if (argc != 2)
     {
         write(2, "Wrong number of arguments\n", 27);
-        exit (1);
+        exit(1);
     }
     bzero(&clients, sizeof(clients));
     FD_ZERO(&fds);
-
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1)
         fatal_error();
@@ -51,17 +51,16 @@ int main(int argc, char** argv)
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(2130706433); // 127.0.0.1
     servaddr.sin_port = htons(atoi(argv[1]));
+
+    if (bind(server_fd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) != 0)
+        fatal_error();
+    if (listen(server_fd, 128))
+        fatal_error();
     int len_servaddr = sizeof(servaddr);
-
-    if ((bind(server_fd, (const struct sockaddr *)&servaddr, sizeof(servaddr))) == -1)
-        fatal_error();
-    if (listen(server_fd, 128) == -1)
-        fatal_error();
-
     while (1)
     {
-        r_fds = w_fds = fds;
-        if (select(max_fd + 1, &w_fds, &r_fds, NULL, NULL) == -1)
+        w_fds = r_fds = fds;
+        if (select(max_fd + 1, &w_fds, &r_fds, NULL, NULL) < 0)
             continue;
         for (int fd = 0; fd <= max_fd; fd++)
         {
@@ -70,7 +69,7 @@ int main(int argc, char** argv)
                 int client_fd = accept(server_fd, (struct sockaddr *)&servaddr, (socklen_t *)&len_servaddr);
                 if (client_fd == -1)
                     continue;
-                if (max_fd < client_fd)
+                if (client_fd > max_fd)
                     max_fd = client_fd;
                 FD_SET(client_fd, &fds);
                 clients[client_fd].id = next_id++;
@@ -80,8 +79,8 @@ int main(int argc, char** argv)
             }
             if (FD_ISSET(fd, &w_fds) && fd != server_fd)
             {
-                int len_recv = recv(fd, r_buf, 1000, 0);
-                if (len_recv <= 0)
+                int len_msg = recv(fd, r_buf, 42 * 4096, 0);
+                if (len_msg <= 0)
                 {
                     sprintf(w_buf, "server: client %d just left\n", clients[fd].id);
                     send_all(fd);
@@ -91,7 +90,7 @@ int main(int argc, char** argv)
                 }
                 else
                 {
-                    for (int i = strlen(clients[fd].msg), j = 0; j < len_recv; i++, j++)
+                    for (int i = strlen(clients[fd].msg), j = 0; j < len_msg; i++, j++)
                     {
                         clients[fd].msg[i] = r_buf[j];
                         if (clients[fd].msg[i] == '\n')
@@ -108,8 +107,6 @@ int main(int argc, char** argv)
             }
         }
     }
-
-
 
     return (0);
 }
