@@ -4,17 +4,17 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <strings.h>
+#include <sys/select.h>
 
 typedef struct client {
-    char    msg[11000];
+    char    msg[100];
     int     id;
-} t_client;
+}   t_client;
 
-t_client    clients[1024];
+t_client    clients[124];
 fd_set      fds, w_fds, r_fds;
 int         max_fd = 0, next_id = 0;
-char        w_buf[42 * 4096], r_buf[42 * 4096];
+char        w_buf[1000], r_buf[1000];
 
 void    fatal_error()
 {
@@ -24,42 +24,44 @@ void    fatal_error()
 
 void    send_all(int sender_fd)
 {
-    for (int i = 0; i <= max_fd; i++) 
-        if (FD_ISSET(i, &fds) && i != sender_fd)
+    for (int i = 0; i <= max_fd; i++)
+    {
+        if (FD_ISSET(i, &r_fds) && i != sender_fd)
             send(i, w_buf, strlen(w_buf), 0);
+    }
 }
 
 int main(int argc, char** argv)
 {
-    if (argc != 2) {
+    if (argc != 2)
+    {
         write(2, "Wrong number of arguments\n", 27);
-        exit(1);
+        exit (1);
     }
-    bzero(&clients, sizeof(clients)); // stimmt des?
+    bzero(&clients, sizeof(clients));
     FD_ZERO(&fds);
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1)
         fatal_error();
-    FD_SET(server_fd, &fds);
     max_fd = server_fd;
+    FD_SET(server_fd, &fds);
 
     struct sockaddr_in servaddr;
-    int len_servaddr = sizeof(servaddr);
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(2130706433); // 127.0.0.1
     servaddr.sin_port = htons(atoi(argv[1]));
+    int len_servaddr = sizeof(servaddr);
 
-
-    if (bind(server_fd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) == -1)
+    if ((bind(server_fd, (const struct sockaddr *)&servaddr, sizeof(servaddr))) == -1)
         fatal_error();
     if (listen(server_fd, 128) == -1)
         fatal_error();
-    
+
     while (1)
     {
         r_fds = w_fds = fds;
-        if (select(max_fd + 1, &w_fds, &r_fds, 0, 0) == -1)
+        if (select(max_fd + 1, &w_fds, &r_fds, NULL, NULL) == -1)
             continue;
         for (int fd = 0; fd <= max_fd; fd++)
         {
@@ -68,9 +70,9 @@ int main(int argc, char** argv)
                 int client_fd = accept(server_fd, (struct sockaddr *)&servaddr, (socklen_t *)&len_servaddr);
                 if (client_fd == -1)
                     continue;
-                FD_SET(client_fd, &fds);
                 if (max_fd < client_fd)
                     max_fd = client_fd;
+                FD_SET(client_fd, &fds);
                 clients[client_fd].id = next_id++;
                 sprintf(w_buf, "server: client %d just arrived\n", clients[client_fd].id);
                 send_all(client_fd);
@@ -78,7 +80,7 @@ int main(int argc, char** argv)
             }
             if (FD_ISSET(fd, &w_fds) && fd != server_fd)
             {
-                int len_recv = recv(fd, r_buf, 42 * 4096, 0);
+                int len_recv = recv(fd, r_buf, 1000, 0);
                 if (len_recv <= 0)
                 {
                     sprintf(w_buf, "server: client %d just left\n", clients[fd].id);
@@ -97,7 +99,8 @@ int main(int argc, char** argv)
                             clients[fd].msg[i] = '\0';
                             sprintf(w_buf, "client %d: %s\n", clients[fd].id, clients[fd].msg);
                             send_all(fd);
-                            bzero(clients[fd].msg, strlen(clients[fd].msg));
+                            bzero(&clients[fd].msg, strlen(clients[fd].msg));
+                            i = -1;
                         }
                     }
                     break;
@@ -105,5 +108,8 @@ int main(int argc, char** argv)
             }
         }
     }
+
+
+
     return (0);
 }
