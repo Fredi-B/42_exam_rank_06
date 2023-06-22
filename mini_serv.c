@@ -7,7 +7,7 @@
 #include <strings.h>
 
 typedef struct client {
-    char    msg[11000];
+    char    msg[110000];
     int     id;
 } t_client;
 
@@ -25,8 +25,10 @@ void    fatal_error()
 void    send_all(int sender_fd)
 {
     for (int i = 0; i <= max_fd; i++) 
+    {
         if (FD_ISSET(i, &fds) && i != sender_fd)
             send(i, w_buf, strlen(w_buf), 0);
+    }
 }
 
 int main(int argc, char** argv)
@@ -50,12 +52,11 @@ int main(int argc, char** argv)
     servaddr.sin_addr.s_addr = htonl(2130706433); // 127.0.0.1
     servaddr.sin_port = htons(atoi(argv[1]));
 
-
     if (bind(server_fd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) == -1)
         fatal_error();
     if (listen(server_fd, 128) == -1)
         fatal_error();
-    
+
     while (1)
     {
         r_fds = w_fds = fds;
@@ -98,6 +99,7 @@ int main(int argc, char** argv)
                             sprintf(w_buf, "client %d: %s\n", clients[fd].id, clients[fd].msg);
                             send_all(fd);
                             bzero(clients[fd].msg, strlen(clients[fd].msg));
+                            i = -1;
                         }
                     }
                     break;
