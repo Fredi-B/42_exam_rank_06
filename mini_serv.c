@@ -98,7 +98,7 @@ int main(int argc, char** argv)
                             clients[fd].msg[i] = '\0';
                             sprintf(w_buf, "client %d: %s\n", clients[fd].id, clients[fd].msg);
                             send_all(fd);
-                            bzero(clients[fd].msg, strlen(clients[fd].msg));
+                            bzero(&clients[fd].msg, strlen(clients[fd].msg));
                             i = -1;
                         }
                     }
